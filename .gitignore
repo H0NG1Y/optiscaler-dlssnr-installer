@@ -1,0 +1,13 @@
+*.exe
+*.msi
+*.zip
+build/
+dist/
+bin/
+obj/
+.vs/
+tmp/
+local-assets/
+deployment-*-result.json
+*-result.json
+publish/

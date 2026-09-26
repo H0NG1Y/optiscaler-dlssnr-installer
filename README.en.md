@@ -14,7 +14,7 @@
 
 ## Overview
 
-A Chinese-language, portable Windows 10/11 x64 installer helper for [Dagherbou/OptiScaler_DLSSNR](https://github.com/Dagherbou/OptiScaler_DLSSNR). Just run `OptiScaler-DLSSNR-Installer.exe`: no Python, no PowerShell modules, and no separate .NET SDK download. It uses the system .NET Framework 4.8 and the built-in Windows HTTPS download stack; on trimmed systems where those components were removed, restore them first or supply a local official ZIP.
+A Chinese-language, portable Windows 10/11 x64 installer helper for [Dagherbou/OptiScaler_DLSSNR](https://github.com/Dagherbou/OptiScaler_DLSSNR) and [wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass](https://github.com/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass). Just run `OptiScaler-DLSSNR-Installer.exe`: no Python, no PowerShell modules, and no separate .NET SDK download. It uses the system .NET Framework 4.8 and the built-in Windows HTTPS download stack; on trimmed systems where those components were removed, restore them first or supply a local official ZIP.
 
 The helper does exactly three things: it writes the upstream components you select into the game directory, it backs up every file it touches, and it lets you **Uninstall and restore** at any time. It runs with normal privileges by default and does not modify the registry, services, drivers, or startup entries, and it never launches the game for you. Current version: **1.7.0**.
 

@@ -14,7 +14,7 @@
 
 ## 项目介绍
 
-Windows 10/11 x64 中文便携安装器，供 [Dagherbou/OptiScaler_DLSSNR](https://github.com/Dagherbou/OptiScaler_DLSSNR) 使用。双击 `OptiScaler-DLSSNR-Installer.exe` 即可，无需安装 Python、PowerShell 模块或另外下载 .NET SDK。使用 Windows 的 .NET Framework 4.8 和系统自带的 HTTPS 下载工具；精简系统若移除了相关组件需先恢复组件，或选择本地官方 ZIP。
+Windows 10/11 x64 中文便携安装器，供 [Dagherbou/OptiScaler_DLSSNR](https://github.com/Dagherbou/OptiScaler_DLSSNR) 与 [wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass](https://github.com/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass) 两个上游使用。双击 `OptiScaler-DLSSNR-Installer.exe` 即可，无需安装 Python、PowerShell 模块或另外下载 .NET SDK。使用 Windows 的 .NET Framework 4.8 和系统自带的 HTTPS 下载工具；精简系统若移除了相关组件需先恢复组件，或选择本地官方 ZIP。
 
 安装器只做三件事：把你选择的上游组件写进游戏目录、写之前先备份、之后随时可以“卸载并还原”。它默认以普通权限运行，不修改系统注册表、服务、驱动或启动项，也不会自动启动游戏。当前版本 **1.7.0**。
 

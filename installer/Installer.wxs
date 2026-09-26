@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OptiScaler DLSSNR 安装助手 —— Windows Installer (MSI) 定义，WiX v3 语法。
+  由仓库根目录的 build-msi.ps1 调用 candle.exe / light.exe 编译。
+
+  预处理器变量（全部由 build-msi.ps1 通过 -d 传入）：
+    ProductVersion   版本号，三段式，例如 1.7.0
+    PayloadDir       MSI 载荷目录（脚本已整理并校验过哈希）
+    IconPath         assets\installer.ico 的绝对路径
+    LicenseRtf       由 installer\License-zh-CN.txt 生成的 RTF 绝对路径
+    IncludeModel     1 / 0：是否把 nvngx_dlssnr.dll（约 158 MB 模型）打进 MSI
+    IncludeFsr       1 / 0：是否把 FSR 两个可选 DLL 打进 MSI
+    IncludeBridge    1 / 0：是否把上游桥接文件 nvngx.dll_dlssnr.dll 打进 MSI（公开发行版为 0）
+    UpgradeCode      产品升级码（固定值，跨版本必须一致）
+
+  设计要点（与 deploy-v1.7.0.ps1 / setup-shortcuts-admin.ps1 保持同一行为）：
+    - perMachine 安装到 [ProgramFiles64Folder]OptiScaler DLSSNR Installer
+    - 开始菜单（所有用户）+ 桌面快捷方式，指向安装目录中的主程序
+    - 给主程序写入 RUNASADMIN 兼容性标记（卸载时只删自己那一项）
+    - 只安装"工具箱"本身，绝不触碰任何游戏目录
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+
+  <Product Id="*"
+           Name="OptiScaler DLSSNR 安装助手"
+           Language="2052"
+           Version="$(var.ProductVersion)"
+           Manufacturer="OptiScaler DLSSNR Installer"
+           UpgradeCode="$(var.UpgradeCode)">
+
+    <Package Id="*"
+             InstallerVersion="500"
+             Platform="x64"
+             Compressed="yes"
+             InstallScope="perMachine"
+             Description="OptiScaler DLSSNR 安装助手 安装程序"
+             Comments="把 OptiScaler DLSS 神经渲染组件装进指定游戏目录的中文助手，含使用说明、桥接 DLL 与可选 FSR 组件。"
+             Keywords="Installer;OptiScaler;DLSS;NeuralRendering"
+             SummaryCodepage="936" />
+
+    <!-- 同版本覆盖安装也按升级处理：开发期反复构建时可直接安装 -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  Schedule="afterInstallValidate"
+                  DowngradeErrorMessage="本机已安装更高版本的“OptiScaler DLSSNR 安装助手”。请先在“设置 → 应用 → 已安装的应用”中卸载，再安装此版本。" />
+
+    <MediaTemplate EmbedCab="yes" CompressionLevel="mszip" />
+
+    <!-- ============ 图标与“应用和功能”信息 ============ -->
+    <Icon Id="InstallerIcon.ico" SourceFile="$(var.IconPath)" />
+    <Property Id="ARPPRODUCTICON" Value="InstallerIcon.ico" />
+    <Property Id="ARPCOMMENTS" Value="OptiScaler DLSS 神经渲染（DLSS-NR）组件安装助手：只往你选择的游戏目录写入组件，并在卸载时还原备份。本安装包为本地自用构建，模型文件不随上游发布包分发。" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Dagherbou/OptiScaler_DLSSNR" />
+
+    <!-- ============ 环境检查 ============ -->
+    <Property Id="NETFRAMEWORK48RELEASE">
+      <RegistrySearch Id="NetFx48ReleaseSearch" Root="HKLM"
+                      Key="SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full"
+                      Name="Release" Type="raw" />
+    </Property>
+
+    <Condition Message="“[ProductName]”只能安装在 64 位 Windows 上。">
+      <![CDATA[VersionNT64]]>
+    </Condition>
+    <Condition Message="“[ProductName]”需要 Windows 8.1 或更高版本。">
+      <![CDATA[Installed OR (VersionNT >= 603)]]>
+    </Condition>
+    <Condition Message="“[ProductName]”需要 .NET Framework 4.8（或更高版本）。请先安装 .NET Framework 4.8，然后重新运行本安装程序。">
+      <![CDATA[Installed OR (NETFRAMEWORK48RELEASE >= "#528040")]]>
+    </Condition>
+
+    <!-- ============ 目录结构 ============ -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="OptiScaler DLSSNR Installer">
+<!-- FSR 可选组件 -->
+<?if $(var.IncludeFsr) = 1 ?>
+          <Directory Id="FsrFolder" Name="FSR" />
+<?endif?>
+        </Directory>
+      </Directory>
+      <!-- perMachine 安装（ALLUSERS=1）：快捷方式放“所有用户”的开始菜单与桌面。
+           ⚠ 只用 MSI 真正认识的标准文件夹属性。实测（installer\test-msi-install.ps1 的 msiexec 日志）：
+             ProgramMenuFolder → C:\ProgramData\Microsoft\Windows\Start Menu\Programs\
+             DesktopFolder     → C:\Users\Public\Desktop\
+           而 CommonProgramsFolder 与 CommonDesktopFolder 都会解析成**源盘根目录 D:\**
+           （日志原文：Adding CommonDesktopFolder property. Its value is 'D:\'；
+                      Adding ApplicationProgramsFolder property. Its value is 'D:\OptiScaler DLSSNR 安装助手\'），
+           结果快捷方式被建到 D:\ 根目录，还让卸载“看起来”留下了旧部署的同名快捷方式。
+           —— 已踩过两次，勿改回 Common* 名字。 -->
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="OptiScaler DLSSNR Installer" />
+      </Directory>
+      <Directory Id="DesktopFolder" />
+    </Directory>
+
+    <!-- ============ 主程序：快捷方式 + 管理员兼容性标记 ============ -->
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="MainExecutable" Guid="*">
+        <File Id="InstallerExe"
+              Name="OptiScaler-DLSSNR-Installer.exe"
+              Source="$(var.PayloadDir)\OptiScaler-DLSSNR-Installer.exe"
+              KeyPath="yes" Vital="yes">
+          <!-- 快捷方式必须嵌在 File 里：这样 WiX 才把 Shortcut 表的 Target 写成 [#InstallerExe]（指向这个 EXE）。
+               若嵌在 Component 上，Target 会退化成目录 [INSTALLFOLDER]，快捷方式点开只会打开文件夹。 -->
+          <Shortcut Id="StartMenuShortcut"
+                    Directory="ApplicationProgramsFolder"
+                    Name="OptiScaler DLSSNR 安装助手"
+                    Description="OptiScaler DLSS 神经渲染组件安装助手"
+                    WorkingDirectory="INSTALLFOLDER"
+                    Icon="InstallerIcon.ico"
+                    Advertise="no" />
+          <Shortcut Id="DesktopShortcut"
+                    Directory="DesktopFolder"
+                    Name="OptiScaler DLSSNR 安装助手"
+                    Description="OptiScaler DLSS 神经渲染组件安装助手"
+                    WorkingDirectory="INSTALLFOLDER"
+                    Icon="InstallerIcon.ico"
+                    Advertise="no" />
+        </File>
+
+        <!-- 卸载时删掉开始菜单下这个子文件夹（顺带满足 ICE64：用户配置目录下的目录须登记进 RemoveFile 表） -->
+        <RemoveFolder Id="RemoveApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+
+        <!-- 与 setup-shortcuts-admin.ps1 等价：只写自己这一项，不动 Layers 下其他程序的标记 -->
+        <RegistryKey Root="HKLM"
+                     Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"
+                     ForceCreateOnInstall="yes"
+                     ForceDeleteOnUninstall="no">
+          <RegistryValue Type="string"
+                         Name="[INSTALLFOLDER]OptiScaler-DLSSNR-Installer.exe"
+                         Value="RUNASADMIN" />
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+
+    <!-- ============ 文档（每个组件只放一个文件，才能用自动 GUID） ============ -->
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="ReadmeMdComponent" Guid="*">
+        <File Id="ReadmeMd" Name="使用说明.md"
+              Source="$(var.PayloadDir)\使用说明.md" KeyPath="yes" />
+      </Component>
+      <Component Id="MsiReadmeComponent" Guid="*">
+        <File Id="MsiReadmeMd" Name="MSI-安装说明.md"
+              Source="$(var.PayloadDir)\MSI-安装说明.md" KeyPath="yes" />
+      </Component>
+      <Component Id="PayloadSumsComponent" Guid="*">
+        <File Id="PayloadSums" Name="SHA256SUMS.txt"
+              Source="$(var.PayloadDir)\SHA256SUMS.txt" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- ============ 上游桥接 DLL（公开发行版不含，用户点「在线下载」时从上游官方包取得） ============ -->
+<?if $(var.IncludeBridge) = 1 ?>
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="BridgeDll" Guid="*">
+        <File Id="BridgeDllFile" Name="nvngx.dll_dlssnr.dll"
+              Source="$(var.PayloadDir)\nvngx.dll_dlssnr.dll" KeyPath="yes" Vital="yes" />
+      </Component>
+    </DirectoryRef>
+<?endif?>
+
+<!-- ============ DLSS 神经渲染模型（本机素材，约 158 MB） ============ -->
+<?if $(var.IncludeModel) = 1 ?>
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="NeuralRenderingModel" Guid="*">
+        <File Id="NrModelFile" Name="nvngx_dlssnr.dll"
+              Source="$(var.PayloadDir)\nvngx_dlssnr.dll" KeyPath="yes" Vital="yes" />
+      </Component>
+    </DirectoryRef>
+<?endif?>
+
+<!-- ============ FSR 可选组件 ============ -->
+<?if $(var.IncludeFsr) = 1 ?>
+    <DirectoryRef Id="FsrFolder">
+      <Component Id="FsrEnabler" Guid="*">
+        <File Id="FsrEnablerDll" Name="dlss-enabler-headless.dll"
+              Source="$(var.PayloadDir)\FSR\dlss-enabler-headless.dll" KeyPath="yes" Vital="yes" />
+      </Component>
+      <Component Id="FsrNukem" Guid="*">
+        <File Id="FsrNukemDll" Name="dlssg_to_fsr3_amd_is_better.dll"
+              Source="$(var.PayloadDir)\FSR\dlssg_to_fsr3_amd_is_better.dll" KeyPath="yes" Vital="yes" />
+      </Component>
+    </DirectoryRef>
+<?endif?>
+
+    <!-- ============ 功能 ============ -->
+    <Feature Id="MainFeature"
+             Title="安装助手（必需）"
+             Level="1"
+             Absent="disallow"
+             Description="安装助手主程序与说明文档；其余组件按构建参数随包。">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="ReadmeMdComponent" />
+      <ComponentRef Id="MsiReadmeComponent" />
+      <ComponentRef Id="PayloadSumsComponent" />
+<?if $(var.IncludeBridge) = 1 ?>
+      <ComponentRef Id="BridgeDll" />
+<?endif?>
+<?if $(var.IncludeFsr) = 1 ?>
+      <ComponentRef Id="FsrEnabler" />
+      <ComponentRef Id="FsrNukem" />
+<?endif?>
+    </Feature>
+
+<?if $(var.IncludeModel) = 1 ?>
+    <Feature Id="NeuralRenderingModelFeature"
+             Title="DLSS 神经渲染模型（可跳过）"
+             Level="1"
+             Absent="allow"
+             Description="nvngx_dlssnr.dll（NVIDIA DLSS-NR 310.8 模型，约 158 MB）。不需要时可用命令行 REMOVE=NeuralRenderingModelFeature 跳过安装。">
+      <ComponentRef Id="NeuralRenderingModel" />
+    </Feature>
+<?endif?>
+
+    <!-- ============ 界面（WiX 内置向导 + 简体中文本地化） ============ -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT"
+              Value="安装完成后运行“OptiScaler DLSSNR 安装助手”（会请求管理员权限）" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtf)" />
+    <UIRef Id="WixUI_InstallDir" />
+    <UIRef Id="WixUI_ErrorProgressText" />
+
+    <!-- 完成对话框的“可选复选框 → 立即运行”接线：
+         只有设置了 WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT，ExitDialog 才显示复选框；
+         勾选后由下面这条 Publish 触发 WixShellExec，以当前用户身份启动助手。
+         （WiX 3.14 的 WixUI_InstallDir 本身不再带这条 Publish，需自行补上。） -->
+    <Property Id="WixShellExecTarget" Value="[#InstallerExe]" />
+    <CustomAction Id="LaunchApplication"
+                  BinaryKey="WixCA"
+                  DllEntry="WixShellExec"
+                  Impersonate="yes" />
+    <UI>
+      <Publish Dialog="ExitDialog"
+               Control="Finish"
+               Event="DoAction"
+               Value="LaunchApplication"
+               Order="1">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+    </UI>
+
+  </Product>
+</Wix>
